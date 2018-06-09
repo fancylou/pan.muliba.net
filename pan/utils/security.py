@@ -25,10 +25,15 @@ def groupfinder(userid, request):
         return GROUPS.get(userid, [])
 
 
-
-
-
-
+"""{
+   "result": "ok",
+   "data": {
+      "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOjEsImlhdCI6MTUyODUzNTU4Nn0.uUB74qnWDrj__iK9HuqWNamnKnR-tY4vxcdfkHJOmNBL5IN9aAeQzXZghhG2MXC_MIDavWFxETfiJU44Mnfmfw"
+   },
+   "message": "",
+   "time": 1528535586.7144241
+}
+"""
 if __name__ == '__main__':
     password = 'fancy103'
     pwhash = hash_password(password)

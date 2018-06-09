@@ -28,6 +28,9 @@ class User(Base):
     email = Column(String(256))
     phone = Column(String(25))
 
+    def to_dic(self):
+        return dict(id=self.id, username=self.username, email=self.email, phone=self.phone)
+
 
 class Folder(Base):
     __tablename__ = 'pan_folders'
