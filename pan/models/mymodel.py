@@ -3,6 +3,7 @@ from sqlalchemy import (
     Column,
     Index,
     Integer,
+    Float,
     Text,
     String,
 )
@@ -38,8 +39,11 @@ class Folder(Base):
     pid = Column(Integer)
     uid = Column(Integer, ForeignKey('pan_users.id'))
     name = Column(String(256))
-    createTime = Column(Integer)
-    updateTime = Column(Integer)
+    createTime = Column(Float)
+    updateTime = Column(Float)
+
+    def to_dic(self):
+        return dict(id=self.id, pid=self.pid, name=self.name, create_time=self.createTime, update_time=self.updateTime)
 
 
 # 存放bucketNumber 默认生成一个1024 ，如果满了 递增 基本满不了 100w文件一个桶
@@ -66,8 +70,8 @@ class File(Base):
     uid = Column(Integer,  ForeignKey('pan_users.id'))
     sfId = Column(Integer, ForeignKey('pan_source_files.id'))
     filename = Column(String(256))
-    createTime = Column(Integer)
-    updateTime = Column(Integer)
+    createTime = Column(Float)
+    updateTime = Column(Float)
 
 
 
