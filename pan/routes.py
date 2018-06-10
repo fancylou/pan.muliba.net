@@ -1,6 +1,7 @@
 def includeme(config):
     config.add_static_view('static', 'static', cache_max_age=3600)
     config.add_route('home', '/')
+    config.add_route('testUpload', '/test')
     config.add_route('login', '/authentication/login')
     config.add_route('who', '/authentication/who')
     config.add_route('logout', '/authentication/logout')

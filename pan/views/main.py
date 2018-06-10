@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
+import os
+import uuid
+import shutil
 import logging
 import time
 from .view_model import APIResponse
@@ -20,6 +23,32 @@ class MainAction:
         self.request = request
         self.logged_in = request.authenticated_userid
         self.db_sess = request.dbsession
+
+    @view_config(route_name='testUpload', renderer='../templates/fileupload.jinja2')
+    def test_upload(self):
+        settings = self.request.registry.settings
+        log.info('read ini file pan.secret: %s' % settings['pan.secret'])
+        if 'form.upload' in self.request.params:
+            input_file = self.request.POST['file'].file
+
+            file_path = os.path.join('/tmp', '%s.xlsx' % uuid.uuid4())
+            log.info('file path %s' % file_path)
+            # We first write to a temporary file to prevent incomplete files from
+            # being used.
+
+            temp_file_path = file_path + '~'
+            log.info('temp file path %s' % temp_file_path)
+            # Finally write the data to a temporary file
+            input_file.seek(0)
+            with open(temp_file_path, 'wb') as output_file:
+                shutil.copyfileobj(input_file, output_file)
+            # Now that we know the file has been fully saved to disk move it into place.
+            os.rename(temp_file_path, file_path)
+
+        return dict(
+            message='',
+            url=self.request.application_url + '/test',
+        )
 
     @view_config(route_name='top', renderer='json', request_method='GET')
     def top(self):
