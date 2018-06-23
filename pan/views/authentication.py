@@ -66,7 +66,7 @@ class Authentication:
             log.info('认证成功，user_id:%s', userid)
             return APIResponse(result=result_ok, data=dict(token=request.create_jwt_token(userid))).asdict()
         else:
-            return APIResponse(result=result_error, message=userid)
+            return APIResponse(result=result_error, message=userid).asdict()
 
     @view_config(route_name='who', request_method='GET', renderer='json')
     def who(self):
@@ -76,7 +76,7 @@ class Authentication:
             if isinstance(user, User):
                 return APIResponse(result=result_ok, data=user.to_dic()).asdict()
             else:
-                return APIResponse(result=result_error, message=user)
+                return APIResponse(result=result_error, message=user).asdict()
         else:
-            return APIResponse(result=result_error, message='anonymous')
+            return APIResponse(result=result_error, message='anonymous').asdict()
 

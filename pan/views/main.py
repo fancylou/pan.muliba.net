@@ -11,7 +11,9 @@ from .view_model import APIResponse
 from pyramid.view import view_config
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy import func, not_
-from ..models import (Folder, File)
+from ..models import (Folder, File, SourceFile)
+from ..utils.md5Helper import md5file
+from ..utils.security import (sfid2path, BUCKET, BUCKET_SPLIT)
 
 result_ok = 'ok'
 result_error = 'error'
@@ -35,7 +37,6 @@ class MainAction:
             log.info('file path %s' % file_path)
             # We first write to a temporary file to prevent incomplete files from
             # being used.
-
             temp_file_path = file_path + '~'
             log.info('temp file path %s' % temp_file_path)
             # Finally write the data to a temporary file
@@ -47,8 +48,60 @@ class MainAction:
 
         return dict(
             message='',
-            url=self.request.application_url + '/test',
+            url=self.request.application_url + '/main/upload',
         )
+
+    @view_config(route_name='upload', renderer='json', request_method='POST')
+    def upload(self):
+        if self.logged_in is None:
+            return self._anonymous_response()
+        pid = self.request.POST['pid']
+        if pid is None:
+            pid = self.request.matchdict["id"]
+            if pid is None:
+                return self._error_response('传入参数错误，没有pid')
+        try:
+            settings = self.request.registry.settings
+            base_path = settings['pan.base.path']
+            log.info('read ini file pan.base.path: %s' % base_path)
+            input_file = self.request.POST['file'].file
+            if input_file is not None:
+                # 获取原始文件名
+                filename = self.request.POST['file'].filename
+                # 计算扩展名
+                extension = os.path.splitext(filename)[-1]
+                log.info('extension:%s' % extension)
+                # 生成临时文件名
+                temp_file_name = (str(uuid.uuid4()) + extension)
+                log.info('tmp file :%s' % temp_file_name)
+                # 临时文件夹
+                tmp_path = '%s/tmp' % base_path
+                log.info('tmp path: %s' % tmp_path)
+                if os.path.isdir(tmp_path) is False:
+                    os.makedirs(tmp_path, exist_ok=True)
+                # 临时文件全路径
+                tmp_file_path = os.path.join('%s/tmp' % base_path, temp_file_name)
+                log.info('temp file path %s' % tmp_file_path)
+                # 开始把上传的文件写入临时文件
+                input_file.seek(0)
+                with open(tmp_file_path, 'wb') as output_file:
+                    shutil.copyfileobj(input_file, output_file)
+                # 计算md5 真正存储文件
+                source_file_id = self._check_storage_file(tmp_file_path, base_path)
+                # File对象存储
+                if source_file_id is None:
+                    return self._error_response('文件存储失败！')
+                else:
+                    c_time = time.time()
+                    new_file = File(pid=pid, uid=self.logged_in, sfId=source_file_id, filename=filename, createTime=c_time, updateTime=c_time)
+                    self.db_sess.add(new_file)
+                    new_id = self.db_sess.query(func.max(File.id)).one()[0]
+                    return APIResponse(result=result_ok, data=dict(fileId=new_id)).asdict()
+            else:
+                return self._error_response('没有接收到文件')
+        except Exception as e:
+            log.error('上传文件异常, %s' % e)
+            return self._error_response('上传文件异常！')
 
     @view_config(route_name='top', renderer='json', request_method='GET')
     def top(self):
@@ -76,6 +129,7 @@ class MainAction:
 
     """queryFolder
     """
+
     @view_config(route_name='queryFolder', renderer='json', request_method='GET')
     def query_folder(self):
         log.info('query folder in coming ...')
@@ -91,6 +145,7 @@ class MainAction:
 
     """重命名文件夹 /main/folder/{id}
        """
+
     @view_config(route_name='renameFolder', renderer='json', request_method='PUT')
     def rename_folder(self):
         log.info('rename folder in coming.....')
@@ -105,6 +160,7 @@ class MainAction:
 
     """删除文件夹 /main/folder/{id}
     """
+
     @view_config(route_name='deleteFolder', renderer='json', request_method='DELETE')
     def delete_folder(self):
         log.info('delete folder in coming.....')
@@ -126,6 +182,10 @@ class MainAction:
 
     def _create_folder_to_db(self, pid, name):
         try:
+            if pid is None or isinstance(pid, int) is False:
+                return self._error_response('文件夹pid不能为空')
+            if name is None or name.strip() == '':
+                return self._error_response('文件夹名称不能为空')
             folder_query = self.db_sess.query(Folder)
             folder = folder_query.filter(Folder.pid == pid, Folder.name == name, Folder.uid == self.logged_in).first()
             if folder is not None:
@@ -172,3 +232,42 @@ class MainAction:
         except DBAPIError as e:
             log.error('删除Folder异常, %s' % e)
             return self._error_response('删除Folder异常')
+
+    def _check_storage_file(self, tmp_file_path, base_path):
+        try:
+            md5_str = md5file(tmp_file_path)
+            query_result = self.db_sess.query(SourceFile).filter(SourceFile.md5 == md5_str).first()
+            if query_result is not None:
+                return query_result.id
+            else:
+                max_path = self.db_sess.query(func.max(SourceFile.path)).one()[0]
+                if max_path is None or max_path == 0:
+                    max_path = BUCKET * BUCKET_SPLIT + 1
+                else:
+                    max_path += 1
+                real_path = sfid2path(max_path)
+                log.info('计算路径:%s' % real_path)
+                tmp_name = os.path.split(tmp_file_path)[1]
+                log.info('临时文件名称:%s' % tmp_name)
+                extension = os.path.splitext(tmp_file_path)[1]
+                log.info('文件扩展：%s' % extension)
+                real_absolute_dir = os.path.join(base_path, real_path)
+                log.info('最终文件夹:%s' % real_absolute_dir)
+                if os.path.isdir(real_absolute_dir) is False:
+                    os.makedirs(real_absolute_dir, exist_ok=True)
+                real_absolute_path = os.path.join(real_absolute_dir, tmp_name)
+                log.info('最终文件全路径：%s' % real_absolute_path)
+                shutil.move(tmp_file_path, real_absolute_path)
+                file_size = os.path.getsize(real_absolute_path)
+                log.info('文件大小：%s' % file_size)
+                # 完成文件存储 开始保存数据
+                s_file = SourceFile(path=max_path, name=tmp_name, extension=extension, size=file_size, md5=md5_str)
+                self.db_sess.add(s_file)
+                new_id = self.db_sess.query(func.max(SourceFile.id)).one()[0]
+                return new_id
+        except Exception as e:
+            log.error('存储文件异常， %s' % e)
+            return None
+
+
+

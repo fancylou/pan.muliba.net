@@ -54,10 +54,12 @@ class Bucket(Base):
     bucketName = Column(String(50))
 
 
-# 存储在服务器上的文件，id = (bucketNumber*1000000)递增 它同时也是存储路径 4层目录结构 1024000000=1024/0/0/0
+# 存储在服务器上的文件，path = (bucketNumber*1000000)递增 它同时也是存储路径 4层目录结构 1024000000=1024/0/0/0
 class SourceFile(Base):
     __tablename__ = 'pan_source_files'
     id = Column(Integer, primary_key=True)
+    path = Column(Integer)
+    name = Column(String(256))
     extension = Column(String(20))
     size = Column(Integer)
     md5 = Column(String(256))
@@ -69,7 +71,7 @@ class File(Base):
     pid = Column(Integer)
     uid = Column(Integer,  ForeignKey('pan_users.id'))
     sfId = Column(Integer, ForeignKey('pan_source_files.id'))
-    filename = Column(String(256))
+    filename = Column(String(512))
     createTime = Column(Float)
     updateTime = Column(Float)
 

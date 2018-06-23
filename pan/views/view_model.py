@@ -4,7 +4,9 @@ import time;
 
 
 class APIResponse:
-    def __init__(self, result='error', message='', data=dict()):
+    def __init__(self, result='error', message='', data=None):
+        if data is None:
+            data = dict()
         self.result = result
         self.message = message
         self.data = data

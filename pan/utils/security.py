@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import bcrypt
+import os.path
 
 
 def hash_password(pw):
@@ -12,6 +13,20 @@ def hash_password(pw):
 def check_password(pw, hashed_pw):
     expected_hash = hashed_pw.encode('utf8')
     return bcrypt.checkpw(pw.encode('utf8'), expected_hash)
+
+
+BUCKET = 1024
+BUCKET_SPLIT = 1000000
+
+
+def sfid2path(sfid):
+    mask = int(sfid / BUCKET_SPLIT)
+    f1 = int(sfid / mask)
+    f2 = f1 - BUCKET_SPLIT
+    f3 = int(f2 / mask)
+    f4 = int(f2 % mask)
+    f5 = int(sfid % mask)
+    return os.path.join(str(mask), str(f3), str(f4), str(f5))
 
 
 USERS = {'editor': hash_password('editor'),
@@ -35,8 +50,11 @@ def groupfinder(userid, request):
 }
 """
 if __name__ == '__main__':
-    password = 'fancy103'
-    pwhash = hash_password(password)
-    print(pwhash)
-    check = check_password(password, pwhash)
-    print('check result: %s' % check)
+    # password = 'fancy103'
+    # pwhash = hash_password(password)
+    # print(pwhash)
+    # check = check_password(password, pwhash)
+    # print('check result: %s' % check)
+    s = sfid2path(1024203002)
+    print(s)
+
